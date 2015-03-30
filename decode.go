@@ -14,6 +14,7 @@ import (
 	"github.com/qedus/osmpbf/OSMPBF"
 	"io"
 	"time"
+	"os"
 )
 
 const (
