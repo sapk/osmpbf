@@ -73,6 +73,7 @@ type Member struct {
 
 type pair struct {
 	i interface{}
+	p int64
 	e error
 }
 
@@ -123,10 +124,10 @@ func (dec *Decoder) Start(n int) error {
 				if p.e == nil {
 					// send decoded objects or decoding error
 					objects, err := dd.Decode(p.i.(*OSMPBF.Blob))
-					output <- pair{objects, err}
+					output <- pair{objects, p.p, err}
 				} else {
 					// send input error as is
-					output <- pair{nil, p.e}
+					output <- pair{nil, p.p, p.e}
 				}
 			}
 			close(output)
@@ -143,16 +144,16 @@ func (dec *Decoder) Start(n int) error {
 			input := dec.inputs[inputIndex]
 			inputIndex = (inputIndex + 1) % n
 
-			blobHeader, blob, err = dec.readFileBlock()
+			blobHeader, blob, position, err = dec.readFileBlock()
 			if err == nil && blobHeader.GetType() != "OSMData" {
 				err = fmt.Errorf("unexpected fileblock of type %s", blobHeader.GetType())
 			}
 			if err == nil {
 				// send blob for decoding
-				input <- pair{blob, nil}
+				input <- pair{blob, position, nil}
 			} else {
 				// send input error as is
-				input <- pair{nil, err}
+				input <- pair{nil, position, err}
 				for _, input := range dec.inputs {
 					close(input)
 				}
@@ -171,12 +172,12 @@ func (dec *Decoder) Start(n int) error {
 			if p.i != nil {
 				// send decoded objects one by one
 				for _, o := range p.i.([]interface{}) {
-					dec.serializer <- pair{o, nil}
+					dec.serializer <- pair{o, p.p, nil}
 				}
 			}
 			if p.e != nil {
 				// send input or decoding error
-				dec.serializer <- pair{nil, p.e}
+				dec.serializer <- pair{nil, p.p, p.e}
 				close(dec.serializer)
 				return
 			}
@@ -192,31 +193,32 @@ func (dec *Decoder) Start(n int) error {
 //
 // Decode is safe for parallel execution. Only first error encountered will be returned,
 // subsequent invocations will return io.EOF.
-func (dec *Decoder) Decode() (interface{}, error) {
+func (dec *Decoder) Decode() (interface{}, int64, error) {
 	p, ok := <-dec.serializer
 	if !ok {
 		return nil, io.EOF
 	}
-	return p.i, p.e
+	return p.i, p.p, p.e
 }
 
-func (dec *Decoder) readFileBlock() (*OSMPBF.BlobHeader, *OSMPBF.Blob, error) {
+func (dec *Decoder) readFileBlock() (*OSMPBF.BlobHeader, *OSMPBF.Blob, int64, error) {
+	pos, _ := dec.r.Seek(0, 1)
 	blobHeaderSize, err := dec.readBlobHeaderSize()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, pos, err
 	}
 
 	blobHeader, err := dec.readBlobHeader(blobHeaderSize)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, pos, err
 	}
 
 	blob, err := dec.readBlob(blobHeader)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, pos, err
 	}
 
-	return blobHeader, blob, err
+	return blobHeader, blob, pos, err
 }
 
 func (dec *Decoder) readBlobHeaderSize() (uint32, error) {
