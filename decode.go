@@ -79,7 +79,7 @@ type pair struct {
 
 // A Decoder reads and decodes OpenStreetMap PBF data from an input stream.
 type Decoder struct {
-	r          io.Reader
+	r          *os.File
 	serializer chan pair
 
 	// for data decoders
@@ -102,7 +102,7 @@ func (dec *Decoder) Start(n int) error {
 	}
 
 	// read OSMHeader
-	blobHeader, blob, err := dec.readFileBlock()
+	blobHeader, blob, position, err := dec.readFileBlock()
 	if err == nil {
 		if blobHeader.GetType() == "OSMHeader" {
 			err = decodeOSMHeader(blob)
@@ -196,7 +196,7 @@ func (dec *Decoder) Start(n int) error {
 func (dec *Decoder) Decode() (interface{}, int64, error) {
 	p, ok := <-dec.serializer
 	if !ok {
-		return nil, io.EOF
+		return nil, p.p, io.EOF
 	}
 	return p.i, p.p, p.e
 }
