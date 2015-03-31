@@ -89,7 +89,7 @@ type Decoder struct {
 }
 
 // NewDecoder returns a new decoder that reads from r.
-func NewDecoder(r io.Reader) *Decoder {
+func NewDecoder(r *os.File) *Decoder {
 	return &Decoder{
 		r:          r,
 		serializer: make(chan pair, 8000), // typical PrimitiveBlock contains 8k OSM entities
