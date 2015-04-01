@@ -78,6 +78,7 @@ type pair struct {
 	e error
 }
 
+
 // A Decoder reads and decodes OpenStreetMap PBF data from an input stream.
 type Decoder struct {
 	r          *os.File
@@ -201,7 +202,23 @@ func (dec *Decoder) Decode() (interface{}, int64, error) {
 	}
 	return p.i, p.p, p.e
 }
+func (dec *Decoder) DecodeBlocAt(pos int64) ([]interface{}, error){
+        dec.r.Seek(pos, 0);
+	_,blob,_,err := dec.readFileBlock()
+        dd := new(dataDecoder)
+        if err == nil {
+                // send decoded objects or decoding error
+                objects, err := dd.Decode(blob)
+                return objects, err
+        } else {
+                // send input error as is
+               return nil, err
+        }
 
+}
+func (dec *Decoder) ReadFileBlock() (*OSMPBF.BlobHeader, *OSMPBF.Blob, int64, error) {
+	return dec.readFileBlock();
+}
 func (dec *Decoder) readFileBlock() (*OSMPBF.BlobHeader, *OSMPBF.Blob, int64, error) {
 	pos, _ := dec.r.Seek(0, 1)
 	blobHeaderSize, err := dec.readBlobHeaderSize()
