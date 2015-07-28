@@ -1,7 +1,7 @@
 package osmpbf
 
 import (
-	"code.google.com/p/goprotobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/qedus/osmpbf/OSMPBF"
 	"time"
 )
